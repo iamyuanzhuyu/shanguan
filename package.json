@@ -1,0 +1,12 @@
+{
+  "name": "shanguan-hike-weather",
+  "version": "2.0.0",
+  "private": true,
+  "description": "山观 — 高德 POI 搜索 + Mapbox 地图 + Open-Meteo 多模型登山天气与景观预测",
+  "scripts": {
+    "check": "node --check js/app.js && node --check js/geocoder.js && node --check js/weather.js && node --check js/search.js && node --check js/coord-dialog.js && node --check js/forecast.js && node --check js/trail.js && node --check js/map-module.js && node --check js/renderer.js && node --check js/state.js && node --check js/utils.js && node --check js/deps.js && node --check js/peaks-db.js && node --check js/coord-transform.js && node --check js/storage.js",
+    "check:peaks": "node scripts/check-peaks.js"
+  },
+  "keywords": ["hiking", "weather", "mapbox", "amap", "open-meteo"],
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.webmanifest">
+<title>山观 · 徒步登山天气与景观预测</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 26 L12 10 L17 18 L21 12 L28 26 Z' fill='%232d5a4a'/%3E%3Ccircle cx='23' cy='8' r='3' fill='%23e07b3a'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/npm/mapbox-gl@3.6.0/dist/mapbox-gl.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/npm/autocomplete.js@0.38.1/dist/autocomplete.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="hd-inner">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 32 32"><path d="M4 26 L12 10 L17 18 L21 12 L28 26 Z" fill="#2d5a4a"/><circle cx="23" cy="8" r="3" fill="#e07b3a"/></svg>
+      <div><b>山观</b><small>HIKING WEATHER &amp; LANDSCAPE</small></div>
+    </div>
+    <div class="search-box">
+      <div class="algolia-wrap">
+        <input id="algoliaSearch" class="aa-input" placeholder="搜索山峰 / 景区 / 地名，或输入经纬度（如 27.47,114.17）" autocomplete="off">
+      </div>
+      <button id="searchBtn">搜索</button>
+      <button id="coordBtn" class="ghost-btn" type="button" data-action="coord-dialog" title="搜不到地点时可手动输入经纬度">坐标</button>
+    </div>
+    <div class="hd-right">
+      <button id="shareBtn">分享</button>
+      <button id="locateBtn">定位我</button>
+    </div>
+  </div>
+</header>
+
+<div class="subbar">
+  <div class="subbar-inner" id="hotList"></div>
+</div>
+
+<main>
+  <!-- 左：地图 -->
+  <div class="map-col">
+    <div id="map"></div>
+    <div class="map-hint">点击地图任意位置选点查询；上传 GPX / KML 轨迹后自动取轨迹最高点，查询该区域的天气。</div>
+    <div class="file-row">
+      <label>上传轨迹（GPX/KML）
+        <input type="file" id="fileInput" accept=".gpx,.kml">
+      </label>
+      <span class="trail-info" id="trailInfo"></span>
+    </div>
+  </div>
+
+  <!-- 右：结果 -->
+  <div class="result" id="result">
+    <div class="empty">
+      <h2>选择一个登山目的地开始</h2>
+      <p>在上方搜索框输入地名，或直接在地图上点击选点。<br>也可点击下方热门路线快速加载：武功山 · 黄山 · 雨崩 · 四姑娘山 · 贡嘎 · 稻城亚丁。</p>
+    </div>
+  </div>
+</main>
+
+<!-- 手动输入经纬度对话框（搜索无命中时自动弹出） -->
+<div class="modal-mask" id="coordModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="coordModalTitle">
+    <h2 id="coordModalTitle">手动输入经纬度</h2>
+    <p class="modal-hint">没有搜到地点时，可以直接输入坐标查询该处的登山天气。</p>
+    <div class="modal-row">
+      <label>纬度 <span>范围 -90 ~ 90，例如 27.4686</span>
+        <input id="coordLat" type="number" step="any" min="-90" max="90" inputmode="decimal" placeholder="27.4686">
+      </label>
+    </div>
+    <div class="modal-row">
+      <label>经度 <span>范围 -180 ~ 180，例如 114.1714</span>
+        <input id="coordLon" type="number" step="any" min="-180" max="180" inputmode="decimal" placeholder="114.1714">
+      </label>
+    </div>
+    <div class="modal-row">
+      <label>坐标系
+        <select id="coordSys">
+          <option value="wgs84" selected>WGS-84（GPS / 户外轨迹 / 本应用）</option>
+          <option value="gcj02">GCJ-02（高德 / 腾讯地图）</option>
+          <option value="bd09">BD-09（百度地图）</option>
+        </select>
+      </label>
+    </div>
+    <div class="modal-row">
+      <label>地点名称 <span>可选，留空则显示为“自定义坐标”</span>
+        <input id="coordName" type="text" maxlength="40" placeholder="例如：朋友推荐的野山头">
+      </label>
+    </div>
+    <p class="modal-error" id="coordError" hidden></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" id="coordCancel">取消</button>
+      <button type="button" class="btn-primary" id="coordSubmit">查询天气</button>
+    </div>
+    <p class="modal-tip">提示：也可以直接在地图上点选位置，或输入“27.47,114.17”这样的坐标。</p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://fastly.jsdelivr.net/npm/mapbox-gl@3.6.0/dist/mapbox-gl.js"></script>
+<script src="https://fastly.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="https://fastly.jsdelivr.net/npm/autocomplete.js@0.38.1/dist/autocomplete.min.js"></script>
+<!-- 分层脚本：config → state → utils → 坐标/搜索/地图 → 业务 → 启动 -->
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/deps.js"></script>
+<script src="js/peaks-db.js"></script>
+<script src="js/coord-transform.js"></script>
+<script src="js/geocoder.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/map-module.js"></script>
+<script src="js/forecast.js"></script>
+<script src="js/trail.js"></script>
+<script src="js/coord-dialog.js"></script>
+<script src="js/search.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
